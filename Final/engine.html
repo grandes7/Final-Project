@@ -1,0 +1,733 @@
+<html>
+<head>
+</head>
+<body style="background-color: #202020;">
+<canvas id="engine__canvas" width="800" height="800" style="border: 1px solid #d3d3d3;">
+<img id="engine__car1" src="car1.png">
+<img id="engine__car2" src="car2.png">
+<img id="engine__flag" src="flag.gif">
+<img id="engine__cloud" src="cloud.png">
+<img id="engine__tree" src="tree.png">
+<script>
+
+var application = null;
+
+var m_w = 123456789;
+var m_z = 987654321;
+var mask = 0xffffffff;
+
+function seed(i) {
+    m_w = i;
+}
+
+
+function random() {
+  m_z = (36969 * (m_z & 65535) + (m_z >> 16)) & mask;
+  m_w = (18000 * (m_w & 65535) + (m_w >> 16)) & mask;
+  var result = ((m_z << 16) + m_w) & mask;
+  result /= 4294967296;
+  
+  return result + 0.5;
+}
+
+
+// Canvas class
+function Canvas(id) {
+  // canvas
+  this.object = document.getElementById(id);
+  // canvas context
+  this.ctx = document.getElementById(id).getContext("2d");;
+
+  // x position
+  this.pos_x = 0;
+  // y position
+  this.pos_y = 0;
+  // rotation
+  this.rotation = 0;
+  
+  // set 2D transformations (rotate, translate) 
+  this.transform = function(pos_x, pos_y, rotation) {
+    this.ctx.rotate((0 - this.rotation) * Math.PI / 180);
+    this.ctx.translate(0 - this.pos_x, 0 - this.pos_y);
+    this.pos_x = pos_x;
+    this.pos_y = pos_y;
+    this.rotation = rotation;
+    this.ctx.translate(this.pos_x, this.pos_y);
+    this.ctx.rotate(this.rotation * Math.PI / 180);
+  }
+}
+
+
+// Application class
+function Application(level) {
+  // canvas object
+  this.canvas = new Canvas("engine__canvas");
+  // engine object
+  this.engine = null;
+  
+  // level
+  this.level = level;  
+  // time
+  this.time = 0; 
+  // state (1: running, 2: win, 3: lost)
+  this.state = 1;  
+  // track
+  this.track = null;
+  // player1
+  this.player1 = null;
+  // player1
+  this.player2 = null;
+  
+  // initialize application
+  this.initialize = function() {
+    application = this;
+    
+    // initialize random generator
+    seed(1);
+
+    // set shadow
+    this.canvas.ctx.shadowBlur = 10;
+    this.canvas.ctx.shadowColor= "#000000";
+    
+    // set font
+    this.canvas.ctx.font = "30px Arial"; 
+    
+    // set global alpha of transparency
+    this.canvas.ctx.globalAlpha = 0.75;
+    
+    // add mouse event listener
+    this.canvas.object.addEventListener("mousedown", this.onMouseDownHandler, false);
+    document.addEventListener("keydown", this.onKeyPressHandler, false);
+    
+    // create a new race (friction: 1.4, power: 2.5, random phase)
+    this.engine = new Engine(400, 350, 1.4, 2.5, random() * 360);
+    this.time = 0;
+    this.state = 1;
+    this.track = new Track(0, 690, 1600 * this.level);
+    this.player1 = new Object("engine__car1", 0, 30);
+    this.player2 = new Object("engine__car2", 0, 30);
+    
+    // initialize track with clouds and trees
+    this.track.initialize(((50 * 100) * this.level * 2) / this.track.length, ((50 * 100) * this.level * 2) / this.track.length);
+  }
+  
+  // draw canvas
+  this.draw = function() {
+    this.canvas.transform(0, 0, 0);
+    
+    // clear canvas
+    this.canvas.ctx.clearRect(0, 0, 800, 800);
+    
+    // draw title
+    var gradient = this.canvas.ctx.createLinearGradient(0, 0, 640, 0);
+    gradient.addColorStop("0", "#808080");
+    gradient.addColorStop("0.1", "#ffffff");
+    gradient.addColorStop("1.0", "#404040");
+    this.canvas.ctx.fillStyle = gradient;
+    this.canvas.ctx.font = "34px Arial";
+    this.canvas.ctx.fillText("level: " + this.level.toString(10), 10, 40);
+    this.canvas.ctx.fillText("time: " + (this.time / 1000).toFixed(1).toString(10) + " seconds", 10, 80);
+    
+    switch (this.state) {
+    case 1 : {
+      this.canvas.ctx.fillText("distance: " + ((this.track.length - this.player1.pos_x) / 20).toFixed(1).toString(10) + " meters", 10, 120);
+      break;
+    }
+    case 2 : {
+      this.canvas.ctx.fillText("distance: 0.0 meters", 10, 120);
+      this.canvas.ctx.fillText("YOU WIN !!!", 10, 160);
+      break;
+    }
+    case 3 : {
+      this.canvas.ctx.fillText("distance: " + ((this.track.length - this.player1.pos_x) / 20).toFixed(1).toString(10) + " meters", 10, 120);
+      this.canvas.ctx.fillText("YOU LOST !!!", 10, 160);
+      break;
+    }
+    }
+
+    this.canvas.ctx.font = "14px Arial";
+    this.canvas.ctx.fillText("Firing pistons by mouse to speed up your car !", 10, 180);
+    this.canvas.ctx.fillText("Press SPACE to restart !", 10, 200);
+    this.canvas.ctx.fillText("Press UP/DOWN arrows to set level !", 10, 220);
+
+    // draw engine
+    this.engine.draw(this.canvas);
+    
+    // draw track
+    this.track.draw(this.canvas, this.player1, this.player2);   
+  }
+  
+  // mouse down handler
+  this.onMouseDownHandler = function(event) {
+    // drive engine by mouse
+    if (application.state == 1) {
+      application.engine.drive(event);
+    }
+  }
+
+  // key press handler
+  this.onKeyPressHandler = function(event) {
+    switch ((event.which) || (event.keyCode)) {
+    case 32 : {
+      // initialize application
+      application.initialize();
+      break;
+    }
+    case 38 : {
+      if (application.level < 10) {
+        // increment level
+        application.level = application.level + 1;
+      }
+      break;
+    }
+    case 40 : {
+      if (application.level > 1) {
+        application.level = application.level - 1;
+      }
+      break;
+    }
+    }
+  }
+
+  // execute application
+  this.execute = function() {
+    switch (this.state) {
+    case 1 : {
+      // increment time
+      this.time = this.time + 25;
+      
+      // check competition
+      if (this.player1.pos_x > this.track.length) {
+        this.state = 2;
+      } else if (this.player2.pos_x > this.track.length) {
+        this.state = 3;
+      }
+      break;
+    }
+    case 2 : {
+      break;
+    }
+    case 3 : {
+      break;
+    }
+    }
+  
+    // update engine
+    this.engine.update();
+  
+    // update player 1 position with engine's momentum
+    this.player1.pos_x = this.player1.pos_x + this.engine.momentum / 2.5;
+    
+    // update player 2 position with level
+    this.player2.pos_x = this.player2.pos_x + (this.level * this.engine.power) / 7.5;
+    
+    // update track position
+    this.track.position = this.player1.pos_x;
+
+    // draw application
+    this.draw();   
+  }
+}
+
+
+// Crankshaft class
+function Crankshaft(pos_x, pos_y, rotation) {
+  // x position
+  this.pos_x = pos_x;
+  // y position
+  this.pos_y = pos_y;
+  // rotation
+  this.rotation = rotation;
+
+  // draw object onto canvas
+  this.draw = function(canvas) {
+    canvas.transform(this.pos_x, this.pos_y, this.rotation);
+
+    canvas.ctx.fillStyle = "#808080";
+    canvas.ctx.beginPath();
+    canvas.ctx.moveTo(-80, 0);
+    canvas.ctx.arc(0, 0, 80, 1 * Math.PI, 2 * Math.PI);
+    canvas.ctx.quadraticCurveTo(40, 0, 40, 40);
+    canvas.ctx.lineTo(40, 80);
+    canvas.ctx.quadraticCurveTo(0, 90, -40, 80);
+    canvas.ctx.lineTo(-40, 40);
+    canvas.ctx.quadraticCurveTo(-40, 0, -80, 0);
+    canvas.ctx.fill();
+    canvas.ctx.fillStyle = "#404040";
+    canvas.ctx.beginPath();
+    canvas.ctx.arc(0, -60, 8, 0, 2 * Math.PI);
+    canvas.ctx.fill();
+    canvas.ctx.beginPath();
+    canvas.ctx.arc(0, 0, 16, 0, 2 * Math.PI);
+    canvas.ctx.fill();
+  }
+}
+
+
+// Piston class
+function Piston(pos_x, pos_y, rotation, mark) {
+  // x position
+  this.pos_x = pos_x;
+  // y position
+  this.pos_y = pos_y;
+  // rotation
+  this.rotation = rotation;
+  
+  // heat
+  this.heat = 128;
+  // mark
+  this.mark = mark;
+  
+  // return true if piston is driven by mouse click
+  this.driven = function(pos_x, pos_y) {
+    var result = false;
+    
+    switch (this.rotation) {
+    case 0 : {
+      if ((pos_x > (this.pos_x - 40)) && (pos_x < (this.pos_x + 40)) && (pos_y > (this.pos_y - 90)) && (pos_y < (this.pos_y + 30))) {
+        result = true;
+      }
+      break;
+    }
+    case 180 : {
+      if ((pos_x > (this.pos_x - 40)) && (pos_x < (this.pos_x + 40)) && (pos_y > (this.pos_y - 30)) && (pos_y < (this.pos_y + 90))) {
+        result = true;
+      }
+      break;
+    }
+    case 90 : {
+      if ((pos_y > (this.pos_y - 40)) && (pos_y < (this.pos_y + 40)) && (pos_x > (this.pos_x - 30)) && (pos_x < (this.pos_x + 90))) {
+        result = true;
+      }
+      break;
+    }
+    case 270 : {
+      if ((pos_y > (this.pos_y - 40)) && (pos_y < (this.pos_y + 40)) && (pos_x > (this.pos_x - 90)) && (pos_x < (this.pos_x + 30))) {
+        result = true;
+      }
+      break;
+    }
+    }
+    
+    return (result);
+  }
+
+  // update piston
+  this.update = function(heat) {
+    // set heat
+    this.heat = heat;
+  
+    if (this.heat > 128) {
+      this.heat = this.heat - 2;
+    }
+  }
+ 
+  // draw object onto canvas
+  this.draw = function(canvas) {
+    canvas.transform(this.pos_x, this.pos_y, this.rotation);
+
+    canvas.ctx.fillStyle = "#" + this.heat.toString(16) + "8888";
+    canvas.ctx.beginPath();
+    canvas.ctx.moveTo(-40, -85);
+    canvas.ctx.quadraticCurveTo(0, -90, 40, -85);
+    canvas.ctx.lineTo(40, -65);
+    canvas.ctx.lineTo(-40, -65);
+    canvas.ctx.lineTo(-40, -85);
+    canvas.ctx.fill();
+    canvas.ctx.fillStyle = "#888888";
+    canvas.ctx.fillRect(-40, -70, 80, 10);
+    canvas.ctx.fillRect(-40, -50, 80, 10);
+    canvas.ctx.fillRect(-40, -30, 80, 20);
+    canvas.ctx.fillStyle = "#ffff88";
+    canvas.ctx.fillRect(-42, -60, 84, 10);
+    canvas.ctx.fillRect(-42, -40, 84, 10);
+    canvas.ctx.fillStyle = "#888888";
+    canvas.ctx.beginPath();
+    canvas.ctx.moveTo(-40, -10);
+    canvas.ctx.lineTo(-40, 30);
+    canvas.ctx.quadraticCurveTo(0, 0, 40, 30);
+    canvas.ctx.lineTo(40, -10);
+    canvas.ctx.lineTo(-40, -10);
+    canvas.ctx.fill();
+    canvas.ctx.fillStyle = "#444444";
+    canvas.ctx.beginPath();
+    canvas.ctx.arc(0, 0, 8, 0, 2 * Math.PI);
+    canvas.ctx.fill();
+  }
+}
+
+
+// rod class
+function Rod(pos_x, pos_y, rotation) {
+  // x position
+  this.pos_x = pos_x;
+  // y position
+  this.pos_y = pos_y;
+  // rotation
+  this.rotation = rotation;
+
+  // draw object onto canvas
+  this.draw = function(canvas) {
+    canvas.transform(this.pos_x, this.pos_y, this.rotation);
+
+    canvas.ctx.fillStyle = "#aaaaaa";
+    canvas.ctx.beginPath();
+    canvas.ctx.moveTo(-10, 0);
+    canvas.ctx.arc(0, 0, 10, 1 * Math.PI, 2 * Math.PI);
+    canvas.ctx.lineTo(10, 180);
+    canvas.ctx.arc(0, 180, 10, 0, 1 * Math.PI);
+    canvas.ctx.lineTo(-10, 0);
+    canvas.ctx.fill();
+    canvas.ctx.fillStyle = "#444444";
+    canvas.ctx.beginPath();
+    canvas.ctx.arc(0, 0, 8, 0, 2 * Math.PI);
+    canvas.ctx.arc(0, 180, 8, 0, 2 * Math.PI);
+    canvas.ctx.fill();
+    
+  }
+}
+
+
+// Engine class
+function Engine(pos_x, pos_y, friction, power, phase) {
+  // x position
+  this.pos_x = pos_x;
+  // y position
+  this.pos_y = pos_y;
+
+  // piston object
+  this.piston1 = new Piston(pos_x, pos_y - 240, 0, true);
+  // rod object
+  this.rod1 = new Rod(pos_x, pos_y - 240, 0);
+  // crankshaft object
+  this.crankshaft1 = new Crankshaft(pos_x, pos_y, 0);
+
+  // piston object
+  this.piston2 = new Piston(pos_x, pos_y, 180, false);
+  // rod object
+  this.rod2 = new Rod(pos_x, pos_y + 240, 180);
+  // crankshaft object
+  this.crankshaft2 = new Crankshaft(pos_x, pos_y, 180);
+  
+  // piston object
+  this.piston3 = new Piston(pos_x + 120, pos_y, 90, false);
+  // rod object
+  this.rod3 = new Rod(pos_x, pos_y, 90);
+  // crankshaft object
+  this.crankshaft3 = new Crankshaft(pos_x, pos_y, 90);
+
+  // piston object
+  this.piston4 = new Piston(pos_x - 120, pos_y, 270, false);
+  // rod object
+  this.rod4 = new Rod(pos_x, pos_y, 270);
+  // crankshaft object
+  this.crankshaft4 = new Crankshaft(pos_x, pos_y, 270);
+
+  // execute phase
+  this.phase = phase;
+  // momentum
+  this.momentum = 0;
+  
+  // friction
+  this.friction = friction
+  // power
+  this.power = power;
+  
+  // next fired piston
+  this.piston = 1;
+  
+  // update
+  this.update = function() {
+    var radian1 = 0;
+    var radian2 = 0;
+    
+    // set phase
+    this.phase = (this.phase + this.momentum);
+    if (this.phase < 0) {
+      this.phase = this.phase + 360;
+    } else if (this.phase >= 360) {
+      this.phase = this.phase - 360;
+    }
+
+    // update piston fire order (4->1->3->2)
+    if ((this.phase >= 0) && (this.phase < 45)) {
+      if (this.piston == 4) {
+        this.piston = 1;
+        this.piston1.mark = true;
+        this.piston4.mark = false;
+      } else if (this.piston == 3) {
+        this.piston = 2;
+        this.piston2.mark = true;
+        this.piston3.mark = false;
+      }
+    } else if ((this.phase >= 180) && (this.phase < 225)) {
+      if (this.piston == 1) {
+        this.piston = 3;
+        this.piston3.mark = true;
+        this.piston1.mark = false;
+      } else if (this.piston == 2) {
+        this.piston = 4;
+        this.piston4.mark = true;
+        this.piston2.mark = false;
+      }
+    } else {
+      this.piston1.mark = false;
+      this.piston2.mark = false;
+      this.piston3.mark = false;
+      this.piston4.mark = false;
+    }
+    
+    // decrement momentum by percent
+    this.momentum = this.momentum - ((this.momentum * this.friction) / 100);
+    
+    // update pistons
+    this.piston1.update(this.piston1.heat);
+    this.piston2.update(this.piston2.heat);
+    this.piston3.update(this.piston3.heat);
+    this.piston4.update(this.piston4.heat);
+
+    // calculate radians
+    radian1 = this.phase * Math.PI / 180;
+    radian2 = ((this.phase + 180) % 360) * Math.PI / 180;
+
+    this.piston1.pos_y = this.pos_y - (60 * Math.cos(radian1)) - (180 * Math.cos(Math.asin(Math.sin(radian1) / 3)));
+    this.rod1.pos_y = this.piston1.pos_y;
+    this.rod1.rotation = -180 * Math.asin(Math.sin(radian1) / 3) / Math.PI;
+    this.crankshaft1.rotation = this.phase;
+
+    this.piston2.pos_y = this.pos_y + (60 * Math.cos(radian1)) + (180 * Math.cos(Math.asin(Math.sin(radian1) / 3)));
+    this.rod2.pos_y = this.piston2.pos_y;
+    this.rod2.rotation = ((180 * Math.asin(Math.sin(radian2) / 3) / Math.PI) + 180) % 360;
+    this.crankshaft2.rotation = (this.phase + 180) % 360;
+
+    this.piston3.pos_x = this.pos_x + (60 * Math.cos(radian2)) + (180 * Math.cos(Math.asin(Math.sin(radian2) / 3)));
+    this.rod3.pos_x = this.piston3.pos_x;
+    this.rod3.rotation = ((-180 * Math.asin(Math.sin(radian2) / 3) / Math.PI) + 90) % 360;
+    this.crankshaft3.rotation = (this.phase + 90) % 360;
+
+    this.piston4.pos_x = this.pos_x - (60 * Math.cos(radian2)) - (180 * Math.cos(Math.asin(Math.sin(radian2) / 3)));
+    this.rod4.pos_x = this.piston4.pos_x;
+    this.rod4.rotation = ((180 * Math.asin(Math.sin(radian1) / 3) / Math.PI) + 270) % 360;
+    this.crankshaft4.rotation = (this.phase + 270) % 360;
+  }
+  
+  // drive by mouse  
+  this.drive = function(event) {
+    var momentum = ((Math.cos(this.phase * Math.PI / 180) + 1) / 2);
+    var power = this.power;
+    
+    // drive piston
+    if (this.piston1.driven(event.pageX, event.pageY) == true) {
+      // updates piston heat
+      this.piston1.update(255);
+
+      if (this.piston1.mark == true) {
+        // increment power
+        power = power * 2.0;
+        
+        // delete mark
+        this.piston1.mark = false;
+      }
+      
+      // update momentum
+      if ((this.phase >= 0) && (this.phase < 180)) {
+        this.momentum = this.momentum + power * momentum;
+      } else {
+        this.momentum = this.momentum - power * momentum;
+      }
+    }
+
+    // check piston
+    if (this.piston2.driven(event.pageX, event.pageY) == true) {
+      // update piston heat
+      this.piston2.update(255);
+
+      if (this.piston2.mark == true) {
+        // increment power
+        power = power * 1.5;
+        
+        // delete mark
+        this.piston2.mark = false;
+      }
+
+      // update momentum
+      if ((this.phase >= 0) && (this.phase < 180)) {
+        this.momentum = this.momentum + power * momentum;
+      } else {
+        this.momentum = this.momentum - power * momentum;
+      }
+    }
+  
+    // check piston
+    if (this.piston3.driven(event.pageX, event.pageY) == true) {
+      // update piston heat
+      this.piston3.update(255);
+
+      if (this.piston3.mark == true) {
+        // increment power
+        power = power * 1.5;
+        
+        // delete mark
+        this.piston3.mark = false;
+      }
+
+      // update momentum
+      if ((this.phase >= 180) && (this.phase < 360)) {
+        this.momentum = this.momentum + power * (1 - momentum);
+      } else {
+        this.momentum = this.momentum - power * (1 - momentum);
+      }
+    }
+
+    // check piston
+    if (this.piston4.driven(event.pageX, event.pageY) == true) {
+      // update piston heat
+      this.piston4.update(255);
+
+      if (this.piston4.mark == true) {
+        // increment power
+        power = power * 1.5;
+        
+        // delete mark
+        this.piston4.mark = false;
+      }
+
+      // update momentum
+      if ((this.phase >= 180) && (this.phase < 360)) {
+        this.momentum = this.momentum + power * (1 - momentum);
+      } else {
+        this.momentum = this.momentum - power * (1 - momentum);
+      }
+    }
+  }
+  
+  // draw engine onto canvas
+  this.draw = function(canvas) {
+    this.crankshaft1.draw(canvas);
+    this.rod1.draw(canvas);
+    this.piston1.draw(canvas);
+
+    this.crankshaft2.draw(canvas);
+    this.rod2.draw(canvas);
+    this.piston2.draw(canvas);
+
+    this.crankshaft3.draw(canvas);
+    this.rod3.draw(canvas);
+    this.piston3.draw(canvas);
+
+    this.crankshaft4.draw(canvas);
+    this.rod4.draw(canvas);
+    this.piston4.draw(canvas);
+  }
+}
+
+
+// object class
+function Object(image, pos_x, pos_y) {
+  // image
+  this.image = document.getElementById(image);
+  // x position
+  this.pos_x = pos_x;
+  // y position
+  this.pos_y = pos_y;
+}
+
+
+// Track class
+function Track(pos_x, pos_y, length) {
+  // x position
+  this.pos_x = pos_x;
+  // y position
+  this.pos_y = pos_y;
+  
+  // objects
+  this.objects = [];
+
+  // length
+  this.length = length;
+  // position
+  this.position = 0;
+  
+  // initialize
+  this.initialize = function(clouds, trees) {
+    // create clouds
+    for (i = 0; i < clouds; i++) {
+      this.objects.push(new Object("engine__cloud", random() * (this.length + 800), random() * 20));
+    }
+
+    // create trees
+    for (i = 0; i < trees; i++) {
+      this.objects.push(new Object("engine__tree", random() * (this.length + 800), 37));
+    }
+
+    // create start flag
+    this.objects.push(new Object("engine__flag", 200, 40));
+
+    // create finish flag
+    this.objects.push(new Object("engine__flag", this.length + 630, 40));
+  }
+  
+  // draw track
+  this.draw = function(canvas, player1, player2) {
+    var delta = 0;
+  
+    canvas.transform(this.pos_x, this.pos_y, 0);
+
+    // draw position line
+    canvas.ctx.fillStyle = "#999999";
+    canvas.ctx.fillRect(0, 0, 800, 10);   
+
+    // draw road
+    canvas.ctx.fillStyle = "#8cf0ff";
+    canvas.ctx.fillRect(0, 10, 800, 80);
+    canvas.ctx.fillStyle = "#cccccc";
+    canvas.ctx.fillRect(0, 90, 800, 20);
+    canvas.ctx.fillStyle = "#aaaaaa";
+    for (i = 0; i < 12; i++) {
+      canvas.ctx.fillRect(0 + (i * 80) - (this.position % 80), 90, 40, 20);
+    }
+    
+    // draw objects
+    for (i = 0; i < this.objects.length; i++) {
+      if (((this.objects[i].pos_x + 170) >= this.position) && ((this.objects[i].pos_x - this.position) < 800)) {
+        canvas.ctx.drawImage(this.objects[i].image, this.objects[i].pos_x - this.position, this.objects[i].pos_y);
+      }
+    }
+
+    // draw player2
+    delta = 630 * (player2.pos_x / this.length);
+    if (((player2.pos_x + delta + 170) >= this.position) && ((player2.pos_x - this.position) < 800)) {
+      canvas.ctx.drawImage(player2.image, (player2.pos_x - this.position) + delta, player2.pos_y);
+    }
+
+    // draw position bar
+    delta = 790 * (player2.pos_x / this.length);
+    canvas.ctx.fillStyle = "#ffaaaa";
+    canvas.ctx.fillRect(0 + delta, 0, 10, 10);   
+  
+    // draw player1
+    delta = 630 * (player1.pos_x/ this.length);
+    canvas.ctx.drawImage(player1.image, (player1.pos_x - this.position) + delta, player1.pos_y);
+
+    // draw status bar
+    delta = 790 * (player1.pos_x / this.length);
+    canvas.ctx.fillStyle = "#aaaaff";
+    canvas.ctx.fillRect(0 + delta, 0, 10, 10);      
+
+  } 
+}
+
+
+// create a new application (level: 4)
+var application = new Application(4);
+
+// initialize application
+application.initialize();
+
+// create a new timer interval to execute
+window.setInterval(function() { application.execute(); }, 25);
+
+  
+</script>
+</body>
+</html>
