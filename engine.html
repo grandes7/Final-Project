@@ -1,0 +1,239 @@
+<html>
+<head>
+</head>
+<body style="background-color: #202020;">
+<canvas id="engine__canvas" width="640" height="640" style="border: 1px solid #d3d3d3;">
+<script>
+
+
+// Canvas class
+function Canvas(id) {
+  // canvas context
+  this.ctx = document.getElementById(id).getContext("2d");;
+
+  // x position
+  this.pos_x = 0;
+  // y position
+  this.pos_y = 0;
+  // rotation
+  this.rotation = 0;
+  
+  // set 2D transformations (rotate, translate) 
+  this.transform = function(pos_x, pos_y, rotation) {
+    this.ctx.rotate((0 - this.rotation) * Math.PI / 180);
+    this.ctx.translate(0 - this.pos_x, 0 - this.pos_y);
+    this.pos_x = pos_x;
+    this.pos_y = pos_y;
+    this.rotation = rotation;
+    this.ctx.translate(this.pos_x, this.pos_y);
+    this.ctx.rotate(this.rotation * Math.PI / 180);
+  }
+}
+
+// Application class
+function Application() {
+  // canvas object
+  this.canvas = new Canvas("engine__canvas");
+  // engine object
+  this.engine = new Engine(320, 440);
+  
+  // initialize application
+  this.initialize = function() {
+    // set shadow
+    this.canvas.ctx.shadowBlur = 10;
+    this.canvas.ctx.shadowColor= "#000000";
+    
+    // set font
+    this.canvas.ctx.font = "30px Arial"; 
+    
+    // set global alpha of transparency
+    this.canvas.ctx.globalAlpha = 0.75;
+  }
+  
+  // draw canvas
+  this.draw = function() {
+    this.canvas.transform(0, 0, 0);
+
+    // clear canvas
+    this.canvas.ctx.clearRect(0, 0, 640, 640);
+    
+    // draw title
+    var gradient = this.canvas.ctx.createLinearGradient(0, 0, 640, 0);
+    gradient.addColorStop("0", "#808080");
+    gradient.addColorStop("0.1", "#ffffff");
+    gradient.addColorStop("1.0", "#404040");
+    this.canvas.ctx.fillStyle = gradient;
+    this.canvas.ctx.fillText("ENGINE ANIMATION DEMO", 10, 40);
+    
+    // draw engine
+    this.engine.draw(this.canvas);
+  }
+
+  // execute application
+  this.execute = function() {
+    // execute engine
+    this.engine.update((this.engine.phase + 2.5) % 360);
+  
+    // draw canvas
+    this.draw();
+  }
+}
+
+// Crankshaft class
+function Crankshaft(pos_x, pos_y, rotation) {
+  // x position
+  this.pos_x = pos_x;
+  // y position
+  this.pos_y = pos_y;
+  // rotation
+  this.rotation = rotation;
+
+  // draw object onto canvas
+  this.draw = function(canvas) {
+    canvas.transform(this.pos_x, this.pos_y, this.rotation);
+
+    canvas.ctx.fillStyle = "#808080";
+    canvas.ctx.beginPath();
+    canvas.ctx.moveTo(-80, 0);
+    canvas.ctx.arc(0, 0, 80, 1 * Math.PI, 2 * Math.PI);
+    canvas.ctx.quadraticCurveTo(40, 0, 40, 40);
+    canvas.ctx.lineTo(40, 80);
+    canvas.ctx.quadraticCurveTo(0, 90, -40, 80);
+    canvas.ctx.lineTo(-40, 40);
+    canvas.ctx.quadraticCurveTo(-40, 0, -80, 0);
+    canvas.ctx.fill();
+    canvas.ctx.fillStyle = "#404040";
+    canvas.ctx.beginPath();
+    canvas.ctx.arc(0, -60, 8, 0, 2 * Math.PI);
+    canvas.ctx.fill();
+    canvas.ctx.beginPath();
+    canvas.ctx.arc(0, 0, 16, 0, 2 * Math.PI);
+    canvas.ctx.fill();
+  }
+}
+
+// Piston class
+function Piston(pos_x, pos_y, rotation) {
+  // x position
+  this.pos_x = pos_x;
+  // y position
+  this.pos_y = pos_y;
+  // rotation
+  this.rotation = rotation;
+
+  // draw object onto canvas
+  this.draw = function(canvas) {
+    canvas.transform(this.pos_x, this.pos_y, this.rotation);
+
+    canvas.ctx.fillStyle = "#aaaaaa";
+    canvas.ctx.beginPath();
+    canvas.ctx.moveTo(-40, -85);
+    canvas.ctx.quadraticCurveTo(0, -90, 40, -85);
+    canvas.ctx.lineTo(40, -65);
+    canvas.ctx.lineTo(-40, -65);
+    canvas.ctx.lineTo(-40, -85);
+    canvas.ctx.fill();
+    canvas.ctx.fillStyle = "#888888";
+    canvas.ctx.fillRect(-40, -70, 80, 10);
+    canvas.ctx.fillRect(-40, -50, 80, 10);
+    canvas.ctx.fillRect(-40, -30, 80, 20);
+    canvas.ctx.fillStyle = "#ffff88";
+    canvas.ctx.fillRect(-42, -60, 84, 10);
+    canvas.ctx.fillRect(-42, -40, 84, 10);
+    canvas.ctx.fillStyle = "#888888";
+    canvas.ctx.beginPath();
+    canvas.ctx.moveTo(-40, -10);
+    canvas.ctx.lineTo(-40, 30);
+    canvas.ctx.quadraticCurveTo(0, 0, 40, 30);
+    canvas.ctx.lineTo(40, -10);
+    canvas.ctx.lineTo(-40, -10);
+    canvas.ctx.fill();
+    canvas.ctx.fillStyle = "#444444";
+    canvas.ctx.beginPath();
+    canvas.ctx.arc(0, 0, 8, 0, 2 * Math.PI);
+    canvas.ctx.fill();
+  }
+}
+
+// rod class
+function Rod(pos_x, pos_y, rotation) {
+  // x position
+  this.pos_x = pos_x;
+  // y position
+  this.pos_y = pos_y;
+  // rotation
+  this.rotation = rotation;
+
+  // draw object onto canvas
+  this.draw = function(canvas) {
+    canvas.transform(this.pos_x, this.pos_y, this.rotation);
+
+    canvas.ctx.fillStyle = "#aaaaaa";
+    canvas.ctx.beginPath();
+    canvas.ctx.moveTo(-10, 0);
+    canvas.ctx.arc(0, 0, 10, 1 * Math.PI, 2 * Math.PI);
+    canvas.ctx.lineTo(10, 180);
+    canvas.ctx.arc(0, 180, 10, 0, 1 * Math.PI);
+    canvas.ctx.lineTo(-10, 0);
+    canvas.ctx.fill();
+    canvas.ctx.fillStyle = "#444444";
+    canvas.ctx.beginPath();
+    canvas.ctx.arc(0, 0, 8, 0, 2 * Math.PI);
+    canvas.ctx.arc(0, 180, 8, 0, 2 * Math.PI);
+    canvas.ctx.fill();
+    
+  }
+}
+
+// Engine class
+function Engine(pos_x, pos_y) {
+  // x position
+  this.pos_x = pos_x;
+  // y position
+  this.pos_y = pos_y;
+
+  // piston object
+  this.piston = new Piston(pos_x, pos_y - 240, 0);
+  // rod object
+  this.rod = new Rod(pos_x, pos_y - 240, 0);
+  // crankshaft object
+  this.crankshaft = new Crankshaft(pos_x, pos_y, 0);
+  
+  // indicate execute phase
+  this.phase = 0;
+  
+  // update
+  this.update = function(phase) {
+    var radian = phase * Math.PI / 180;
+    
+    // set phase
+    this.phase = phase;
+
+    this.piston.pos_y = this.pos_y - (60 * Math.cos(radian)) - (180 * Math.cos(Math.asin(Math.sin(radian) / 3)));
+    this.rod.pos_y = this.piston.pos_y;
+    this.rod.rotation = -180 * Math.asin(Math.sin(radian) / 3) / Math.PI;
+    
+    this.crankshaft.rotation = this.phase;
+  }
+
+  // draw engine onto canvas
+  this.draw = function(canvas) {
+    this.piston.draw(canvas);
+    this.crankshaft.draw(canvas);
+    this.rod.draw(canvas);
+  }
+}
+
+// create a new application
+var application = new Application("engine__canvas");
+
+// initialize application
+application.initialize();
+
+// create a new timer interval to execute
+window.setInterval(function() { application.execute(); }, 25);
+
+  
+</script>
+</body>
+</html>
